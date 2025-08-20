@@ -1,9 +1,13 @@
+import { DocumentInterface } from "@langchain/core/documents";
 import { GoogleGenerativeAIEmbeddings } from "@langchain/google-genai";
 import { QdrantVectorStore } from "@langchain/qdrant";
 import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
 
-async function aiResponse(query: string = "", relevantChunks: string = "") {
+async function aiResponse(
+  query: string = "",
+  relevantChunks: DocumentInterface<Record<string, any>>[]
+) {
   if (!query) {
     throw new Error(`user query not found ${query}`);
   }
@@ -23,18 +27,20 @@ async function aiResponse(query: string = "", relevantChunks: string = "") {
     - Only answer based on the avaiable context from file only.
     
     Context:
-    - ${relevantChunks}
+    - ${JSON.stringify(relevantChunks)}
   `;
 
   const response = await client.chat.completions.create({
-    model: "gemini-2.5-pro",
+    model: "gemini-2.5-flash",
     messages: [
       { role: "system", content: systemPrompt },
       { role: "user", content: query },
     ],
   });
 
-  return response;
+  // console.log("response from ai", response);
+
+  return response.choices[0].message.content;
 }
 
 export async function POST(req: NextRequest) {
@@ -67,13 +73,12 @@ export async function POST(req: NextRequest) {
     throw new Error(`Relevant chunk are not generated ${relevantChunks}`);
   }
 
-  const response = await aiResponse(query, JSON.stringify(relevantChunks));
+  const response = await aiResponse(query, relevantChunks);
+  // console.log(response)
 
   if (!response) {
-    throw new Error(`AI didn't generate response ${response}`);
+    throw new Error(`AI didn't generate response`);
   }
-
-  console.log(`Response is generating ... , ${response}`);
 
   return NextResponse.json(
     {
